@@ -11,6 +11,7 @@
 
 # ignore warnings.
 import warnings
+from tempfile import TemporaryFile
 warnings.filterwarnings('ignore')
 
 # Audio processing
@@ -48,6 +49,86 @@ import stft
 
 
 class Classifier:
+    genre_id_map = {
+        "rock": 1,
+        "pop": 2,
+        "hip_hop": 3,
+        "country": 4,
+        "edm": 5
+    }
+
+    id_genre_map = {
+        1: "rock",
+        2: "pop",
+        3: "hip_hop",
+        4: "country",
+        5: "edm"
+    }
+
+    genre_datafile = {
+        "country": [
+            r"/media/mohit/New Volume/DatasetSongs/Country/country1.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country2.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country3.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country4.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country5.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country6.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country7.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country8.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country9.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Country/country10.wav"
+        ],
+        "edm": [
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm1.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm2.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm3.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm4.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm5.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm6.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm7.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm8.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm9.wav",
+            r"/media/mohit/New Volume/DatasetSongs/EDM/edm10.wav"
+        ],
+        "pop": [
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop1.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop2.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop3.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop4.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop5.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop6.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop7.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop8.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop9.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Pop/pop10.wav"
+        ],
+        "hip_hop": [
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop1.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop2.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop3.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop4.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop5.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop6.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop7.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop8.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop9.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Hip_Hop/hiphop10.wav"
+        ],
+        "rock": [
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock1.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock2.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock3.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock4.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock5.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock6.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock7.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock8.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock9.wav",
+            r"/media/mohit/New Volume/DatasetSongs/Rock/rock10.wav"
+        ]
+
+    }
+
     def __init__(self):
         # create the audio files path.
         self.audio_file = collections.defaultdict(dict)
@@ -78,6 +159,10 @@ class Classifier:
              707.1, 1000, 1414, 1682, 2000, 2515, 3162, 3976,
              5000, 7071, 10000, 11890, 14140, 15500])
 
+        self.loudn_bark = np.zeros((self.eq_loudness.shape[0], len(self.bark)))
+
+
+    @staticmethod
     def periodogram(x, win, Fs=None, nfft=1024):
         if Fs == None:
             Fs = 2 * np.pi
@@ -103,6 +188,7 @@ class Classifier:
 
         return P
 
+    @staticmethod
     def nextpow2(num):
         n = 2
         i = 1
@@ -111,20 +197,14 @@ class Classifier:
             i += 1
         return i
 
-    def audio_length(self):
-        samplerate, wavedata = wavfile.read(self.audio_file["rock"]["path"])
-        self.audio_file["rock"]["wavedata"] = wavedata
-        self.audio_file["rock"]["samplerate"] = samplerate
+    @staticmethod
+    def audio_features(audio_file_path):
+        samplerate, wavedata = wavfile.read(audio_file_path)
         number_of_samples = wavedata.shape[0]
-        print samplerate, wavedata.shape[0]
-        # song length : number of samples/samplerate.
-        print "Audio length: " + str(number_of_samples / samplerate) + " seconds"
-
-    def wavedata_mean(self):
-        self.audio_file["rock"]["wavedata"] = np.mean(self.audio_file["rock"]["wavedata"], axis=1)
+        return samplerate, number_of_samples, np.mean(wavedata, axis=1)
 
     @staticmethod
-    def zero_crossing_rate(wavedata, block_length, sample_rate):
+    def zero_crossing_rate(wavedata, sample_rate, block_length=1024):
         # Number of blocks required.
         num_blocks = int(np.ceil(len(wavedata) / block_length))
 
@@ -186,7 +266,7 @@ class Classifier:
     """
 
     @staticmethod
-    def spectral_rolloff(wavedata, window_size, sample_rate, k=0.85):
+    def spectral_rolloff(wavedata, sample_rate, window_size=1024, k=0.85):
         # convert into frequency domain using short term fourier transform.
         magnitude_spectrum = stft.spectrogram(wavedata, window_size)
         time_bins, freq_bins = np.shape(magnitude_spectrum)
@@ -215,7 +295,7 @@ class Classifier:
     """ Helps in measuring rate of local change in the spectrum"""
 
     @staticmethod
-    def spectral_flux(wavedata, window_size, sample_rate):
+    def spectral_flux(wavedata, sample_rate, window_size=1024):
         magnitude_spectrum = stft.spectrogram(wavedata, window_size)
         time_bins, freq_bins = np.shape(magnitude_spectrum)
 
@@ -357,7 +437,7 @@ class Classifier:
         n_iter = wavsegment.shape[0] / fft_window_size * 2 - 1
         w = np.hanning(fft_window_size)
 
-        spectrograph = np.zeros((fft_window_size / 2 + 1), n_iter)
+        spectrograph = np.zeros((((fft_window_size/2) + 1), n_iter))
 
         idx = np.arange(fft_window_size)
 
@@ -368,7 +448,7 @@ class Classifier:
         Pxx = spectrograph
         return Pxx
 
-    def bark_scale(self, Pxx, sample_rate, fft_window_size=1024):
+    def bark_scale(self, pxx, sample_rate, fft_window_size=1024):
         # calculate bark-filterbank
         loudn_bark = np.zeros((self.eq_loudness.shape[0], len(self.bark)))
 
@@ -377,7 +457,7 @@ class Classifier:
 
         for bsi in self.bark:
 
-            while j < len(self.loudn_freq) and bsi > self.loudn_freq[i]:
+            while j < len(self.loudn_freq) and bsi > self.loudn_freq[j]:
                 j += 1
             j -= 1
 
@@ -390,13 +470,13 @@ class Classifier:
             i += 1
 
         # Apply bark-filter
-        matrix = np.zeros((len(self.bark), Pxx.shape[1]))
+        matrix = np.zeros((len(self.bark), pxx.shape[1]))
 
         barks = self.bark[:]
         barks.insert(0, 0)
         freq_axis = float(sample_rate) / fft_window_size * np.arange(0, (fft_window_size / 2) + 1)
         for i in range(len(barks) - 1):
-            matrix[i] = np.sum(Pxx[((freq_axis >= barks[i]) & (freq_axis < barks[i + 1]))], axis=0)
+            matrix[i] = np.sum(pxx[((freq_axis >= barks[i]) & (freq_axis < barks[i + 1]))], axis=0)
 
         return matrix
 
@@ -424,6 +504,7 @@ class Classifier:
         # map to decibel scale
         matrix[np.where(matrix < 1)] = 1
         matrix = 10 * np.log10(matrix)
+        return matrix
 
     """ Phon Scale : Equal loudness curves (Phon)
 
@@ -440,7 +521,7 @@ class Classifier:
         # introducing 1 level more with level(1) being infinite to avoid (levels-1) producing errors like division by 0.
 
         table_dim = n_bands
-        cbv = np.concatenate((np.tile(np.inf, (table_dim, 1)), self.loudn_freq[:, 0:n_bands].transpose()), 1)
+        cbv = np.concatenate((np.tile(np.inf, (table_dim, 1)), self.loudn_bark[:, 0:n_bands].transpose()), 1)
 
         phons = phon[:]
         phons.insert(0, 0)
@@ -457,7 +538,7 @@ class Classifier:
             [np.tile(np.array([range(0, table_dim)]).transpose(), (1, t)), levels - 1]), order='F')
 
         cbv_ind_lo = np.ravel_multi_index(dims=(table_dim, 7), multi_index=np.array(
-            [np.tile(np.array([range(0, table_dim)]).transpose(), (1, t), levels - 2)]), order='F')
+            [np.tile(np.array([range(0, table_dim)]).transpose(), (1, t)), levels - 2]), order='F')
 
         # interpolation factor % OPT : pre-calc diff
         ifac = (matrix[:, 0:t] - cbv.transpose().ravel()[cbv_ind_lo]) / (
@@ -486,6 +567,7 @@ class Classifier:
 
         return matrix
 
+    @staticmethod
     def calc_statistical_features(matrix):
         result = np.zeros((matrix.shape[0], 7))
         result[:, 0] = np.mean(matrix, axis=1)
@@ -528,3 +610,45 @@ class Classifier:
 
     def mvd(self, rp):
         return self.calc_statistical_features(rp.transpose())
+
+
+def extract_features_from_audio_files():
+    classifier = Classifier()
+    features = []
+    output = []
+    for genre in classifier.genre_datafile:
+        for audio_file in classifier.genre_datafile[genre]:
+            try:
+                sample_rate, number_of_samples, wavedata = classifier.audio_features(audio_file)
+                zcr = classifier.zero_crossing_rate(wavedata=wavedata, sample_rate=sample_rate)
+                rms = classifier.root_mean_square(wavedata=wavedata, sample_rate=sample_rate)
+                spectral_centroid = classifier.spectral_centroid(wavedata=wavedata, sample_rate=sample_rate)
+                spectral_rolloff = classifier.spectral_rolloff(wavedata=wavedata, sample_rate=sample_rate)
+                spectral_flux = classifier.spectral_flux(wavedata=wavedata, sample_rate=sample_rate)
+                MFCCs, logspec, magnitude_spec = classifier.MFCC_Cal(input_data=wavedata)
+                spectral_graph = classifier.spectrograph(classifier, wave_data=wavedata, sample_rate=sample_rate)
+                bark_scale = classifier.bark_scale(pxx=spectral_graph, sample_rate=sample_rate)
+                spectral_masking = classifier.spectral_masking(matrix=bark_scale)
+                phon_mapping = classifier.phon_mapping(matrix=spectral_masking)
+                sone_scale = classifier.sone_scale(matrix=phon_mapping)
+                stats_features = classifier.calc_statistical_features(matrix=sone_scale)
+                rhythm_patterns, rhythm_histogram = classifier.rhythm_patterns(matrix=sone_scale)
+                mvd = classifier.mvd(rp=rhythm_patterns)
+
+
+                # feature set :
+                feature_set = [zcr, rms, spectral_centroid, spectral_rolloff, spectral_flux, MFCCs, logspec, magnitude_spec, stats_features, mvd]
+                features.append(feature_set)
+                output.append(classifier.genre_id_map[genre])
+            except:
+                print "could not play for the dataset : " + genre + " " + audio_file
+    print output
+
+
+extract_features_from_audio_files()
+
+
+
+
+
+
