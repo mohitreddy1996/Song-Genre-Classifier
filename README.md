@@ -1,9 +1,10 @@
 # Song-Genre-Classifier
-Song Genre Classifier
+Python Application which predicts the genre of the song. Classifier trained with 50-60 songs of different songs. (atleast 8 songs of each genre).
 
-Classifier implemented using Python. 
-Implemented Signal Processing Algorithms using scikit.Talkbox to extract features from audio files. Those features used to train the Machine Learning Algorithms.
-
-(TODO)
-
-Machine Learning Part to be integrated.
+## Features Implemented/To be Implemented.
+* ~~Timbral Features.~~
+* ~~Rhythmic Features.~~
+* ~~Other features from Songs (Pitch, RMS value etc).~~
+* Train the system/classifier using Random Forest (Decision Trees) and check accuracy.
+* Train using Neural Nets (Perceptrons, take value and arrive at a prediction).
+* Softmax?
